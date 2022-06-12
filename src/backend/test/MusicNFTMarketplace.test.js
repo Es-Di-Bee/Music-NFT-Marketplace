@@ -1,28 +1,40 @@
-const { expect } = require("chai");
+// require() statement basically reads a JavaScript file, executes it, and then proceeds to return the export object
+// "expect" is a function of "chai"
+const { expect } = require("chai"); 
 
+// arrow functions for converting from ethers to wei and vice-versa
 const toWei = (num) => ethers.utils.parseEther(num.toString())
 const fromWei = (num) => ethers.utils.formatEther(num)
 
-describe("MusicNFTMarketplace", function () {
+// "describe" is a mocha function for grouping tests together
+// it takes 2 arguments -> name of the test, callback function (function which is passed as an argument to another function)
 
-  let nftMarketplace
-  let deployer, artist, user1, user2, users;
-  let royaltyFee = toWei(0.01); // 1 ether = 10^18 wei
-  let URI = "https://bafybeidhjjbjonyqcahuzlpt7sznmh4xrlbspa3gstop5o47l6gsiaffee.ipfs.nftstorage.link/"
-  let prices = [toWei(1), toWei(2), toWei(3), toWei(4), toWei(5), toWei(6), toWei(7), toWei(8)]
-  let deploymentFees = toWei(prices.length * 0.01)
+describe("MusicNFTMarketplace Testing", function () {
+
+  let nftMarketplace;
+  let deployer, artist, user1, user2, users;  // address of all the associated persons
+  let royaltyFee = toWei(0.01); // the artist will receive 0.01 ether for each reselling
+  let URI = "https://bafybeidhjjbjonyqcahuzlpt7sznmh4xrlbspa3gstop5o47l6gsiaffee.ipfs.nftstorage.link/";  // the URI where all the musics are stored
+  let prices = [toWei(1), toWei(2), toWei(3), toWei(4), toWei(5), toWei(6), toWei(7), toWei(8)];  // setting the prices for each of the musics in the marketplace
+  let deploymentFees = toWei(prices.length * 0.01);  // the deployer will need to pay the royaltyFee for all the musics
+
+  // beforeEach will run this async function before every "describe"
 
   beforeEach(async function () {
-    // Get the ContractFactory and Signers here.
+
+    // ContractFactory is needed for the deployment of the smart contract
     const NFTMarketplaceFactory = await ethers.getContractFactory("MusicNFTMarketplace");
+
+    // GetSigners returns the addresses of all the nodes in the blockchain. 
+    // "...users" will contain the list of the addresses of user3 till lastUser
     [deployer, artist, user1, user2, ...users] = await ethers.getSigners();
 
     // Deploy music nft marketplace contract 
     nftMarketplace = await NFTMarketplaceFactory.deploy(
-      royaltyFee,
-      artist.address,
-      prices,
-      { value: deploymentFees }
+    royaltyFee,
+    artist.address,
+    prices,
+    { value: deploymentFees }
     );
 
   });
@@ -74,7 +86,7 @@ describe("MusicNFTMarketplace", function () {
     });
 
   });
-  
+
   describe("Buying tokens", function () {
 
     it("Should update seller to zero address, transfer NFT, pay seller, pay royalty to artist and emit a MarketItemBought event", async function () {
@@ -83,11 +95,7 @@ describe("MusicNFTMarketplace", function () {
       // user1 purchases item.
       await expect(nftMarketplace.connect(user1).buyToken(0, { value: prices[0] }))
         .to.emit(nftMarketplace, "MarketItemBought")
-        .withArgs(
-          0,
-          deployer.address,
-          user1.address,
-          prices[0]
+        .withArgs(0, deployer.address, user1.address, prices[0]
         )
       const deployerFinalEthBal = await deployer.getBalance()
       const artistFinalEthBal = await artist.getBalance()
@@ -111,79 +119,79 @@ describe("MusicNFTMarketplace", function () {
     
   })
 
-    describe("Reselling tokens", function () {
+  describe("Reselling tokens", function () {
 
-        beforeEach(async function () {
-        // user1 purchases an item.
-        await nftMarketplace.connect(user1).buyToken(0, { value: prices[0] })
-        })
+    beforeEach(async function () {
+    // user1 purchases an item.
+    await nftMarketplace.connect(user1).buyToken(0, { value: prices[0] })
+    })
 
-        it("Should track resale item, incr. ether bal by royalty fee, transfer NFT to marketplace and emit MarketItemRelisted event", async function () {
-            const resaleprice = toWei(2)
-            const initMarketBal = await ethers.provider.getBalance(nftMarketplace.address)
-            // user1 lists the nft for a price of 2 hoping to flip it and double their money
-            await expect(nftMarketplace.connect(user1).resellToken(0, resaleprice, { value: royaltyFee }))
-                .to.emit(nftMarketplace, "MarketItemRelisted")
-                .withArgs(
-                0,
-                user1.address,
-                resaleprice
-                )
-            const finalMarketBal = await ethers.provider.getBalance(nftMarketplace.address)
-            // Expect final market bal to equal inital + royalty fee
-            expect(+fromWei(finalMarketBal)).to.equal(+fromWei(royaltyFee) + +fromWei(initMarketBal))
-            // Owner of NFT should now be the marketplace
-            expect(await nftMarketplace.ownerOf(0)).to.equal(nftMarketplace.address);
-            // Get item from items mapping then check fields to ensure they are correct
-            const item = await nftMarketplace.marketItems(0)
-            expect(item.tokenId).to.equal(0)
-            expect(item.seller).to.equal(user1.address)
-            expect(item.price).to.equal(resaleprice)
-        });
-
-        it("Should fail if price is set to zero and royalty fee is not paid", async function () {
-            await expect(
-                nftMarketplace.connect(user1).resellToken(0, 0, { value: royaltyFee })
-            ).to.be.revertedWith("Price must be greater than zero");
-            await expect(
-                nftMarketplace.connect(user1).resellToken(0, toWei(1), { value: 0 })
-            ).to.be.revertedWith("Must pay royalty");
-        });
+    it("Should track resale item, incr. ether bal by royalty fee, transfer NFT to marketplace and emit MarketItemRelisted event", async function () {
+      const resaleprice = toWei(2)
+      const initMarketBal = await ethers.provider.getBalance(nftMarketplace.address)
+      // user1 lists the nft for a price of 2 hoping to flip it and double their money
+      await expect(nftMarketplace.connect(user1).resellToken(0, resaleprice, { value: royaltyFee }))
+        .to.emit(nftMarketplace, "MarketItemRelisted")
+        .withArgs(
+        0,
+        user1.address,
+        resaleprice
+        )
+      const finalMarketBal = await ethers.provider.getBalance(nftMarketplace.address)
+      // Expect final market bal to equal inital + royalty fee
+      expect(+fromWei(finalMarketBal)).to.equal(+fromWei(royaltyFee) + +fromWei(initMarketBal))
+      // Owner of NFT should now be the marketplace
+      expect(await nftMarketplace.ownerOf(0)).to.equal(nftMarketplace.address);
+      // Get item from items mapping then check fields to ensure they are correct
+      const item = await nftMarketplace.marketItems(0)
+      expect(item.tokenId).to.equal(0)
+      expect(item.seller).to.equal(user1.address)
+      expect(item.price).to.equal(resaleprice)
     });
 
-
-    describe("Getter functions", function () {
-        let soldItems = [0, 1, 4]
-        let ownedByUser1 = [0, 1]
-        let ownedByUser2 = [4]
-        beforeEach(async function () {
-          // user1 purchases item 0.
-          await (await nftMarketplace.connect(user1).buyToken(0, { value: prices[0] })).wait();
-          // user1 purchases item 1.
-          await (await nftMarketplace.connect(user1).buyToken(1, { value: prices[1] })).wait();
-          // user2 purchases item 4.
-          await (await nftMarketplace.connect(user2).buyToken(4, { value: prices[4] })).wait();
-        })
-    
-        it("getAllUnsoldTokens should fetch all the marketplace items up for sale", async function () {
-          const unsoldItems = await nftMarketplace.getAllUnsoldTokens()
-          // Check to make sure that all the returned unsoldItems have filtered out the sold items.
-          expect(unsoldItems.every(i => !soldItems.some(j => j === i.tokenId.toNumber()))).to.equal(true)
-          // Check that the length is correct
-          expect(unsoldItems.length === prices.length - soldItems.length).to.equal(true)
-        });
-        it("getMyTokens should fetch all tokens the user owns", async function () {
-          // Get items owned by user1
-          let myItems = await nftMarketplace.connect(user1).getMyTokens()
-          // Check that the returned my items array is correct
-          expect(myItems.every(i => ownedByUser1.some(j => j === i.tokenId.toNumber()))).to.equal(true)
-          expect(ownedByUser1.length === myItems.length).to.equal(true)
-          // Get items owned by user2
-          myItems = await nftMarketplace.connect(user2).getMyTokens()
-          // Check that the returned my items array is correct
-          expect(myItems.every(i => ownedByUser2.some(j => j === i.tokenId.toNumber()))).to.equal(true)
-          expect(ownedByUser2.length === myItems.length).to.equal(true)
-        });
+    it("Should fail if price is set to zero and royalty fee is not paid", async function () {
+      await expect(
+        nftMarketplace.connect(user1).resellToken(0, 0, { value: royaltyFee })
+        ).to.be.revertedWith("Price must be greater than zero");
+      await expect(
+        nftMarketplace.connect(user1).resellToken(0, toWei(1), { value: 0 })
+        ).to.be.revertedWith("Must pay royalty");
     });
+  });
+
+
+  describe("Getter functions", function () {
+    let soldItems = [0, 1, 4]
+    let ownedByUser1 = [0, 1]
+    let ownedByUser2 = [4]
+    beforeEach(async function () {
+      // user1 purchases item 0.
+      await (await nftMarketplace.connect(user1).buyToken(0, { value: prices[0] })).wait();
+      // user1 purchases item 1.
+      await (await nftMarketplace.connect(user1).buyToken(1, { value: prices[1] })).wait();
+      // user2 purchases item 4.
+      await (await nftMarketplace.connect(user2).buyToken(4, { value: prices[4] })).wait();
+    })
+
+    it("getAllUnsoldTokens should fetch all the marketplace items up for sale", async function () {
+      const unsoldItems = await nftMarketplace.getAllUnsoldTokens()
+      // Check to make sure that all the returned unsoldItems have filtered out the sold items.
+      expect(unsoldItems.every(i => !soldItems.some(j => j === i.tokenId.toNumber()))).to.equal(true)
+      // Check that the length is correct
+      expect(unsoldItems.length === prices.length - soldItems.length).to.equal(true)
+    });
+    it("getMyTokens should fetch all tokens the user owns", async function () {
+      // Get items owned by user1
+      let myItems = await nftMarketplace.connect(user1).getMyTokens()
+      // Check that the returned my items array is correct
+      expect(myItems.every(i => ownedByUser1.some(j => j === i.tokenId.toNumber()))).to.equal(true)
+      expect(ownedByUser1.length === myItems.length).to.equal(true)
+      // Get items owned by user2
+      myItems = await nftMarketplace.connect(user2).getMyTokens()
+      // Check that the returned my items array is correct
+      expect(myItems.every(i => ownedByUser2.some(j => j === i.tokenId.toNumber()))).to.equal(true)
+      expect(ownedByUser2.length === myItems.length).to.equal(true)
+    });
+  });
 
 });

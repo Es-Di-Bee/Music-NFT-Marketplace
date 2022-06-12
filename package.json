@@ -16,6 +16,7 @@
     "ethers": "^5.5.4",
     "hardhat": "^2.8.4",
     "identicon.js": "^2.3.3",
+    "node-fetch": "^3.2.6",
     "react": "^17.0.2",
     "react-bootstrap": "^2.1.2",
     "react-dom": "^17.0.2",
