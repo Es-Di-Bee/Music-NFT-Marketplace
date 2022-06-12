@@ -29,12 +29,12 @@ describe("MusicNFTMarketplace Testing", function () {
     // "...users" will contain the list of the addresses of user3 till lastUser
     [deployer, artist, user1, user2, ...users] = await ethers.getSigners();
 
-    // Deploy music nft marketplace contract 
+    // Deploying the contract passing the arguments which the contract needed in its' constructor
     nftMarketplace = await NFTMarketplaceFactory.deploy(
-    royaltyFee,
-    artist.address,
-    prices,
-    { value: deploymentFees }
+      royaltyFee,
+      artist.address,
+      prices,
+      {value: deploymentFees}  // this is the "msg.value" needed for covering the royaltyFee for the musics deployed
     );
 
   });
