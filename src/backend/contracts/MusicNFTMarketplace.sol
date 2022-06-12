@@ -53,7 +53,7 @@ contract MusicNFTMarketplace is ERC721("MusicNFTs", "MNS"), Ownable {  // inheri
         for(uint8 i = 0; i < _prices.length; i++) {
             require(_prices[i] > 0, "Prices must be greater than Zero");
             _mint(address(this), i);  // minting (publishing on blockchain) each tokenID for this contract address
-            MarketItem memory music_nft = MarketItem(i, payable(msg.sender), _prices[i]); // data of a music nft stored in a struct
+            MarketItem memory music_nft = MarketItem(i, payable(msg.sender), _prices[i]); // data of a music nft stored in an object
             marketItems.push(music_nft);  // inserting all the freshly minted music nfts in the nft-collection
         }
     }

@@ -7,7 +7,7 @@ const toWei = (num) => ethers.utils.parseEther(num.toString())
 const fromWei = (num) => ethers.utils.formatEther(num)
 
 // "describe" is a mocha function for grouping tests together
-// it takes 2 arguments -> name of the test, callback function (function which is passed as an argument to another function)
+//  takes 2 arguments -> name of the test, callback function (function which is passed as an argument to another function)
 
 describe("MusicNFTMarketplace Testing", function () {
 
@@ -18,18 +18,20 @@ describe("MusicNFTMarketplace Testing", function () {
   let prices = [toWei(1), toWei(2), toWei(3), toWei(4), toWei(5), toWei(6), toWei(7), toWei(8)];  // setting the prices for each of the musics in the marketplace
   let deploymentFees = toWei(prices.length * 0.01);  // the deployer will need to pay the royaltyFee for all the musics
 
-  // beforeEach will run this async function before every "describe"
+  // beforeEach will run this async function before every "it"
 
   beforeEach(async function () {
 
     // ContractFactory is needed for the deployment of the smart contract
     const NFTMarketplaceFactory = await ethers.getContractFactory("MusicNFTMarketplace");
 
-    // GetSigners returns the addresses of all the nodes in the blockchain. 
-    // "...users" will contain the list of the addresses of user3 till lastUser
+    // GetSigners returns the accounts of all the nodes in the blockchain. 
+    // "...users" will contain the list of the accounts of user3 till lastUser
     [deployer, artist, user1, user2, ...users] = await ethers.getSigners();
 
-    // Deploying the contract passing the arguments which the contract needed in its' constructor
+    // Deploying the contract passing the arguments which the .sol contract needed in its' constructor
+    // the promise from .deploy resolved to an instance of the contract, here named "nftMarketplace", 
+    // which will be used to interact with the contract
     nftMarketplace = await NFTMarketplaceFactory.deploy(
       royaltyFee,
       artist.address,
@@ -41,7 +43,10 @@ describe("MusicNFTMarketplace Testing", function () {
 
   describe("Deployment", function () {
 
-    it("Should track name, symbol, URI, royalty fee and artist", async function () {
+    // "it" => "individual test". A green tick will appear if the tests are okay
+    // takes 2 arguments, decription and a callback function
+
+    it("Tracking name, symbol, URI, royalty fee and artist", async function () {
       const nftName = "MusicNFTs"
       const nftSymbol = "MNS"
       expect(await nftMarketplace.name()).to.equal(nftName);
@@ -51,13 +56,20 @@ describe("MusicNFTMarketplace Testing", function () {
       expect(await nftMarketplace.artist()).to.equal(artist.address);
     });
 
-    it("Should mint then list all the music nfts", async function () {
+    it("Minting and then Listing all the music nfts", async function () {
 
-      expect(await nftMarketplace.balanceOf(nftMarketplace.address)).to.equal(8);
+      // one token contract might use balances to represent physical objects
+      // balanceOf returns the token balance of a contract's address
+      // in this case, it's 8 because we are representing 8 musics using 8 tokens
+      expect(await nftMarketplace.balanceOf(nftMarketplace.address)).to.equal(prices.length);
+      
       // Get each item from the marketItems array then check fields to ensure they are correct
+      // "await Promise.all" will wait for all the promises to resolve
+      // "map" will use the async function on all of the elements of the list "prices"
+      // map takes 2 argments -> i refers to the current element of prices list and indx referes to current index
+      await Promise.all(prices.map(async function (i, indx) {
 
-      await Promise.all(prices.map(async (i, indx) => {
-
+        // fetching an NFT item from the market list
         const item = await nftMarketplace.marketItems(indx);
 
         expect(item.tokenId).to.equal(indx);
@@ -68,7 +80,8 @@ describe("MusicNFTMarketplace Testing", function () {
 
     });
 
-    it("Ether balance should equal deployment fees", async function () {
+    // checking if the wallet balance of the smart contract contains the deployed fee or not
+    it("Ether Balance = Deployment Fees", async function () {
       expect(await ethers.provider.getBalance(nftMarketplace.address)).to.equal(deploymentFees)
     });
 
