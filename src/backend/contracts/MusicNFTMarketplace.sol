@@ -23,8 +23,11 @@ contract MusicNFTMarketplace is ERC721("MusicNFTs", "MNS"), Ownable {  // inheri
         uint256 price;  // price of a music
     }
 
+
+    // events allow us to log data to the ethereum blockchain
+    // "indexed" helps us to search using these variables as filters
     event MarketItemBought (
-        uint256 indexed tokenId,
+        uint256 indexed tokenId, 
         address indexed seller,
         address buyer,
         uint256 price
@@ -53,27 +56,37 @@ contract MusicNFTMarketplace is ERC721("MusicNFTs", "MNS"), Ownable {  // inheri
         for(uint8 i = 0; i < _prices.length; i++) {
             require(_prices[i] > 0, "Prices must be greater than Zero");
             _mint(address(this), i);  // minting (publishing on blockchain) each tokenID for this contract address
-            MarketItem memory music_nft = MarketItem(i, payable(msg.sender), _prices[i]); // data of a music nft stored in an object
+            MarketItem memory music_nft = MarketItem(i, payable(msg.sender), _prices[i]); // data of a music nft stored in a struct
             marketItems.push(music_nft);  // inserting all the freshly minted music nfts in the nft-collection
         }
     }
 
-
+    // this function is for updating the royaltyFee
+    // "onlyOwner" is a modifier, which checks if the function is being called by the owner
     function updateRoyaltyFee(uint256 _royaltyFee) external onlyOwner {
         royaltyFee = _royaltyFee;
     }
 
     function buyToken(uint256 _tokenId) external payable {
-        uint256 price = marketItems[_tokenId].price;
-        address seller = marketItems[_tokenId].seller;
+        uint256 price = marketItems[_tokenId].price;    // current price of the particular token
+        address seller = marketItems[_tokenId].seller;  // current seller of the particular token
 
+        // checking if the sent money is equal to the current price or not
         require(msg.value == price, "Please send the asking price in order to complete the purchase");
-        
-        marketItems[_tokenId].seller = payable(address(0));
+    
+        // "_transfer" arguments are => from, to, tokenID
+        // when buying tokens, token ownership are transferred from the address of the smart contract to the buyer
         _transfer(address(this), msg.sender, _tokenId);
+
+        // the fees are transferred to the wallets of both the artist and the seller
+        // payable type-casting is done to invoke the function "transfer"
         payable(artist).transfer(royaltyFee);
         payable(seller).transfer(msg.value);
 
+        // as the item is sold, the new seller is No One
+        marketItems[_tokenId].seller = payable(address(0));
+
+        // emitting the event with tokenId, seller , buyer and price
         emit MarketItemBought(_tokenId, seller, msg.sender, price);
     }
 

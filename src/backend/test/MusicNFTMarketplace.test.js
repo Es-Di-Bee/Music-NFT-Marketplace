@@ -8,7 +8,6 @@ const fromWei = (num) => ethers.utils.formatEther(num)
 
 // "describe" is a mocha function for grouping tests together
 //  takes 2 arguments -> name of the test, callback function (function which is passed as an argument to another function)
-
 describe("MusicNFTMarketplace Testing", function () {
 
   let nftMarketplace;
@@ -19,7 +18,6 @@ describe("MusicNFTMarketplace Testing", function () {
   let deploymentFees = toWei(prices.length * 0.01);  // the deployer will need to pay the royaltyFee for all the musics
 
   // beforeEach will run this async function before every "it"
-
   beforeEach(async function () {
 
     // ContractFactory is needed for the deployment of the smart contract
@@ -45,7 +43,6 @@ describe("MusicNFTMarketplace Testing", function () {
 
     // "it" => "individual test". A green tick will appear if the tests are okay
     // takes 2 arguments, decription and a callback function
-
     it("Tracking name, symbol, URI, royalty fee and artist", async function () {
       const nftName = "MusicNFTs"
       const nftSymbol = "MNS"
@@ -56,17 +53,21 @@ describe("MusicNFTMarketplace Testing", function () {
       expect(await nftMarketplace.artist()).to.equal(artist.address);
     });
 
-    it("Minting and then Listing all the music nfts", async function () {
+    it("Minting all the music NFTs", async function () {
 
       // one token contract might use balances to represent physical objects
       // balanceOf returns the token balance of a contract's address
       // in this case, it's 8 because we are representing 8 musics using 8 tokens
       expect(await nftMarketplace.balanceOf(nftMarketplace.address)).to.equal(prices.length);
+
+    });
+
+    it ("Listing all the Music NFTs", async function() {
       
       // Get each item from the marketItems array then check fields to ensure they are correct
       // "await Promise.all" will wait for all the promises to resolve
       // "map" will use the async function on all of the elements of the list "prices"
-      // map takes 2 argments -> i refers to the current element of prices list and indx referes to current index
+      // map's callback function takes 2 argments -> i refers to the current element of prices list and indx referes to current index
       await Promise.all(prices.map(async function (i, indx) {
 
         // fetching an NFT item from the market list
@@ -89,13 +90,18 @@ describe("MusicNFTMarketplace Testing", function () {
 
   describe("Updating royalty fee", function () {
 
-    it("Only deployer should be able to update royalty fee", async function () {
-      const fee = toWei(0.02)
-      await nftMarketplace.updateRoyaltyFee(fee)
-      await expect(
-        nftMarketplace.connect(user1).updateRoyaltyFee(fee)
-      ).to.be.revertedWith("Ownable: caller is not the owner");
-      expect(await nftMarketplace.royaltyFee()).to.equal(fee)
+    it("Third person CAN NOT update the Royalty Fee", async function () {
+      const fee = toWei(0.02);  // say we want to change the royalty fee to => 0.2 ether
+      // user 1 is trying to change the royalty fee which shouldn't be permissible
+      // so now testing if transaction was reverted with certain message
+      await expect(nftMarketplace.connect(user1).updateRoyaltyFee(fee)).to.be.revertedWith("Ownable: caller is not the owner");
+    });
+
+    it ("Developer CAN update the Royalty Fee", async function() {
+      const fee = toWei(0.02);
+      // here the developer is trying to update the royalty fee which should be permissible
+      await nftMarketplace.updateRoyaltyFee(fee); 
+      expect(await nftMarketplace.royaltyFee()).to.equal(fee);  // checking if the update has been done or not
     });
 
   });
