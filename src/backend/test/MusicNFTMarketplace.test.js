@@ -43,7 +43,7 @@ describe("MusicNFTMarketplace Testing", function () {
 
     // "it" => "individual test". A green tick will appear if the tests are okay
     // takes 2 arguments, decription and a callback function
-    it("Tracking name, symbol, URI, royalty fee and artist", async function () {
+    it("Updating name, symbol, URI, royalty fee and artist", async function () {
       const nftName = "MusicNFTs"
       const nftSymbol = "MNS"
       expect(await nftMarketplace.name()).to.equal(nftName);
@@ -83,7 +83,7 @@ describe("MusicNFTMarketplace Testing", function () {
 
     // checking if the wallet balance of the smart contract contains the deployed fee or not
     it("Ether Balance = Deployment Fees", async function () {
-      expect(await ethers.provider.getBalance(nftMarketplace.address)).to.equal(deploymentFees)
+      expect(await ethers.provider.getBalance(nftMarketplace.address)).to.equal(deploymentFees);
     });
 
   });
@@ -109,23 +109,32 @@ describe("MusicNFTMarketplace Testing", function () {
   describe("Buying tokens", function () {
 
     it("Should update seller to zero address, transfer NFT, pay seller, pay royalty to artist and emit a MarketItemBought event", async function () {
-      const deployerInitalEthBal = await deployer.getBalance()
-      const artistInitialEthBal = await artist.getBalance()
+      // storing the initial ether balance of the seller (deployer) and the artist (who will recieve the royalty fee)
+      const deployerInitalEthBal = await deployer.getBalance();
+      const artistInitialEthBal = await artist.getBalance();
+
       // user1 purchases item.
+      // checking if the purchase has emitted an event with the specific arguments or not
+      // the arguments are => tokenId, seller, buyer, price
       await expect(nftMarketplace.connect(user1).buyToken(0, { value: prices[0] }))
         .to.emit(nftMarketplace, "MarketItemBought")
         .withArgs(0, deployer.address, user1.address, prices[0]
-        )
-      const deployerFinalEthBal = await deployer.getBalance()
-      const artistFinalEthBal = await artist.getBalance()
+      )
+      
+      const deployerFinalEthBal = await deployer.getBalance();
+      const artistFinalEthBal = await artist.getBalance();
+
       // Item seller should be zero addr
-      expect((await nftMarketplace.marketItems(0)).seller).to.equal("0x0000000000000000000000000000000000000000")
+      expect((await nftMarketplace.marketItems(0)).seller).to.equal("0x0000000000000000000000000000000000000000");
+
       // Seller should receive payment for the price of the NFT sold.
-      expect(+fromWei(deployerFinalEthBal)).to.equal(+fromWei(prices[0]) + +fromWei(deployerInitalEthBal))
+      expect(+fromWei(deployerFinalEthBal)).to.equal(+fromWei(prices[0]) + +fromWei(deployerInitalEthBal));
+
       // Artist should receive royalty
-      expect(+fromWei(artistFinalEthBal)).to.equal(+fromWei(royaltyFee) + +fromWei(artistInitialEthBal))
+      expect(+fromWei(artistFinalEthBal)).to.equal(+fromWei(royaltyFee) + +fromWei(artistInitialEthBal));
+
       // The buyer should now own the nft
-      expect(await nftMarketplace.ownerOf(0)).to.equal(user1.address);
+      expect(await nftMarketplace.ownerOf(0)).to.equal(user1.address);;
     })
 
 
