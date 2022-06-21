@@ -1,21 +1,28 @@
+// Notes:
+// "Waffle" is framework for testing
+// "describe" and "it" are functions of "mocha" library
+// "expect" is a function of "chai" library
+
 // require() statement basically reads a JavaScript file, executes it, and then proceeds to return the export object
-// "expect" is a function of "chai"
+// this line is basically availing the use of "chai.expect()"
 const { expect } = require("chai"); 
+// we will also be using hardhat.ethers() to interact with our smart contract
+const { ethers } = require("hardhat");
 
 // arrow functions for converting from ethers to wei and vice-versa
-const toWei = (num) => ethers.utils.parseEther(num.toString())
-const fromWei = (num) => ethers.utils.formatEther(num)
+const ethToWei = (num) => ethers.utils.parseEther(num.toString()) // string => bigNumber
+const weiToEth = (num) => ethers.utils.formatEther(num)           // bigNumber => string
 
 // "describe" is a mocha function for grouping tests together
 //  takes 2 arguments -> name of the test, callback function (function which is passed as an argument to another function)
-describe("MusicNFTMarketplace Testing", function () {
+describe("Music-NFT Marketplace Testing", function () {
 
   let nftMarketplace;
   let deployer, artist, user1, user2, users;  // address of all the associated persons
-  let royaltyFee = toWei(0.01); // the artist will receive 0.01 ether for each reselling
+  let royaltyFee = ethToWei(0.01); // the artist will receive 0.01 ether for each reselling
   let URI = "https://bafybeidhjjbjonyqcahuzlpt7sznmh4xrlbspa3gstop5o47l6gsiaffee.ipfs.nftstorage.link/";  // the URI where all the musics are stored
-  let prices = [toWei(1), toWei(2), toWei(3), toWei(4), toWei(5), toWei(6), toWei(7), toWei(8)];  // setting the prices for each of the musics in the marketplace
-  let deploymentFees = toWei(prices.length * 0.01);  // the deployer will need to pay the royaltyFee for all the musics
+  let prices = [ethToWei(1), ethToWei(2), ethToWei(3), ethToWei(4), ethToWei(5), ethToWei(6), ethToWei(7), ethToWei(8)];  // setting the prices for each of the musics in the marketplace
+  let deploymentFees = ethToWei(prices.length * 0.01);  // the deployer will need to pay the royaltyFee for all the musics
 
   // beforeEach will run this async function before every "it"
   beforeEach(async function () {
@@ -24,8 +31,8 @@ describe("MusicNFTMarketplace Testing", function () {
     const NFTMarketplaceFactory = await ethers.getContractFactory("MusicNFTMarketplace");
 
     // GetSigners returns the accounts of all the nodes in the blockchain. 
-    // "...users" will contain the list of the accounts of user3 till lastUser
-    [deployer, artist, user1, user2, ...users] = await ethers.getSigners();
+    // "...users" will contain the list of the accounts of user3 till lastUser // ethers.getSigners is a function of ether.js which is injected into hardhat
+    [deployer, artist, user1, user2, ...users] = await ethers.getSigners();  // so we can collect all the signers running on this hardhat local blockchain
 
     // Deploying the contract passing the arguments which the .sol contract needed in its' constructor
     // the promise from .deploy resolved to an instance of the contract, here named "nftMarketplace", 
@@ -43,7 +50,7 @@ describe("MusicNFTMarketplace Testing", function () {
 
     // "it" => "individual test". A green tick will appear if the tests are okay
     // takes 2 arguments, decription and a callback function
-    it("Updating name, symbol, URI, royalty fee and artist", async function () {
+    it("Updated Name, Symbol, URI, Royalty Fee and Artist", async function () {
       const nftName = "MusicNFTs"
       const nftSymbol = "MNS"
       expect(await nftMarketplace.name()).to.equal(nftName);
@@ -53,7 +60,7 @@ describe("MusicNFTMarketplace Testing", function () {
       expect(await nftMarketplace.artist()).to.equal(artist.address);
     });
 
-    it("Minting all the music NFTs", async function () {
+    it("Minted all the music NFTs", async function () {
 
       // one token contract might use balances to represent physical objects
       // balanceOf returns the token balance of a contract's address
@@ -62,7 +69,7 @@ describe("MusicNFTMarketplace Testing", function () {
 
     });
 
-    it ("Listing all the Music NFTs", async function() {
+    it ("Listed all the Music NFTs", async function() {
       
       // Get each item from the marketItems array then check fields to ensure they are correct
       // "await Promise.all" will wait for all the promises to resolve
@@ -77,28 +84,29 @@ describe("MusicNFTMarketplace Testing", function () {
         expect(item.seller).to.equal(deployer.address);
         expect(item.price).to.equal(i);
 
-      }))
+      }));
 
     });
 
     // checking if the wallet balance of the smart contract contains the deployed fee or not
-    it("Ether Balance = Deployment Fees", async function () {
+    it("Ether Balance equals to Deployment Fees", async function () {
       expect(await ethers.provider.getBalance(nftMarketplace.address)).to.equal(deploymentFees);
     });
 
   });
 
-  describe("Updating royalty fee", function () {
+  describe("Updated Royalty Fee", function () {
+
+    const fee = ethToWei(0.02); 
 
     it("Third person CAN NOT update the Royalty Fee", async function () {
-      const fee = toWei(0.02);  // say we want to change the royalty fee to => 0.2 ether
+      // say we want to change the royalty fee to => 0.2 ether
       // user 1 is trying to change the royalty fee which shouldn't be permissible
       // so now testing if transaction was reverted with certain message
       await expect(nftMarketplace.connect(user1).updateRoyaltyFee(fee)).to.be.revertedWith("Ownable: caller is not the owner");
     });
 
     it ("Developer CAN update the Royalty Fee", async function() {
-      const fee = toWei(0.02);
       // here the developer is trying to update the royalty fee which should be permissible
       await nftMarketplace.updateRoyaltyFee(fee); 
       expect(await nftMarketplace.royaltyFee()).to.equal(fee);  // checking if the update has been done or not
@@ -106,13 +114,49 @@ describe("MusicNFTMarketplace Testing", function () {
 
   });
 
-  describe("Buying tokens", function () {
+  describe("Purchase of Tokens", function () {
 
-    it("Should update seller to zero address, transfer NFT, pay seller, pay royalty to artist and emit a MarketItemBought event", async function () {
-      // storing the initial ether balance of the seller (deployer) and the artist (who will recieve the royalty fee)
-      const deployerInitalEthBal = await deployer.getBalance();
-      const artistInitialEthBal = await artist.getBalance();
+    // NOTES:
+    // solidity can easily handle large numbers with uint256, but js can not handle it with safe math
+    // that's why we need BigNumber in js. For doing calculation of BigNumber, 
+    // we need to invoke the functions of BigNumber like BigNumber.add(value), etc.
+    // But for avoiding that, and for doing the calculation using normal safe math of js,
+    // we are converting every BigNumber wei to ether (which safe math can handle)
 
+    it("Seller & Artist Received the Payment", async function() {
+
+      // initial wallet balance of the seller (deployer at first) & artist
+      // weiToEth function is needed because "getBalance" returns the balance in wei, which is a BigNumber
+      const sellerInitialBalance = +weiToEth(await deployer.getBalance()); //  "+" is a unary operator which converts the value to a number
+      const artistInitialBalance = +weiToEth(await artist.getBalance());  // as "weiToEth" returns an string
+
+      // user1 is buying the nft with tokenId:0
+      await nftMarketplace.connect(user1).buyToken(0, {value: prices[0]});
+
+      // updated wallet balance of the seller & artist
+      const sellerUpdatedBalance = +weiToEth(await deployer.getBalance());
+      const artistUpdatedBalance = +weiToEth(await artist.getBalance());
+
+      // checking if the wallet balance of seller and artist is updated after the transaction
+      expect(sellerUpdatedBalance).to.equal(sellerInitialBalance + +weiToEth(prices[0]));  // here, we are doing normal addition, not BigNumber.add()
+      expect(artistUpdatedBalance).to.equal(artistInitialBalance + +weiToEth(royaltyFee)); // that is exactly why we needed to convert wei to ether
+    });
+
+    it("Buyer is the New Owner", async function() {
+      await nftMarketplace.connect(user1).buyToken(0, {value: prices[0]});
+
+      // checking if the new owner is user1 or not
+      expect(await nftMarketplace.ownerOf(0)).to.equal(user1.address);  // "ownerOf" is a function of ECR721 Contract
+    });
+
+    it("Seller Address Updated to Zero", async function() {
+      await nftMarketplace.connect(user1).buyToken(0, {value: prices[0]});
+
+      // checking the seller address of the tokenId:0
+      expect((await nftMarketplace.marketItems(0)).seller).to.equal("0x0000000000000000000000000000000000000000");
+    });
+
+    it("Emitted an event of Buying a Token", async function() {
       // user1 purchases item.
       // checking if the purchase has emitted an event with the specific arguments or not
       // the arguments are => tokenId, seller, buyer, price
@@ -120,106 +164,127 @@ describe("MusicNFTMarketplace Testing", function () {
         .to.emit(nftMarketplace, "MarketItemBought")
         .withArgs(0, deployer.address, user1.address, prices[0]
       )
-      
-      const deployerFinalEthBal = await deployer.getBalance();
-      const artistFinalEthBal = await artist.getBalance();
+    });
 
-      // Item seller should be zero addr
-      expect((await nftMarketplace.marketItems(0)).seller).to.equal("0x0000000000000000000000000000000000000000");
-
-      // Seller should receive payment for the price of the NFT sold.
-      expect(+fromWei(deployerFinalEthBal)).to.equal(+fromWei(prices[0]) + +fromWei(deployerInitalEthBal));
-
-      // Artist should receive royalty
-      expect(+fromWei(artistFinalEthBal)).to.equal(+fromWei(royaltyFee) + +fromWei(artistInitialEthBal));
-
-      // The buyer should now own the nft
-      expect(await nftMarketplace.ownerOf(0)).to.equal(user1.address);;
-    })
-
-
-    it("Should fail when ether amount sent with transaction does not equal asking price", async function () {
-      // Fails when ether sent does not equal asking price
+    it("Transaction Rejected when Ether amount sent does not equal Asking Price", async function () {
+      // user1 trying to buy tokenId:1 with the price of tokenID:2
       await expect(
-        nftMarketplace.connect(user1).buyToken(0, { value: prices[1] })
+        nftMarketplace.connect(user1).buyToken(1, { value: prices[2] })
       ).to.be.revertedWith("Please send the asking price in order to complete the purchase");
     });
     
   })
 
-  describe("Reselling tokens", function () {
+  describe("Resell of Tokens", function () {
 
+    // we are using this to make sure that user1 always purchases an item. And only then we can test the selling functions
     beforeEach(async function () {
-    // user1 purchases an item.
-    await nftMarketplace.connect(user1).buyToken(0, { value: prices[0] })
+      await nftMarketplace.connect(user1).buyToken(0, { value: prices[0] })
     })
 
-    it("Should track resale item, incr. ether bal by royalty fee, transfer NFT to marketplace and emit MarketItemRelisted event", async function () {
-      const resaleprice = toWei(2)
-      const initMarketBal = await ethers.provider.getBalance(nftMarketplace.address)
-      // user1 lists the nft for a price of 2 hoping to flip it and double their money
-      await expect(nftMarketplace.connect(user1).resellToken(0, resaleprice, { value: royaltyFee }))
-        .to.emit(nftMarketplace, "MarketItemRelisted")
-        .withArgs(
-        0,
-        user1.address,
-        resaleprice
-        )
-      const finalMarketBal = await ethers.provider.getBalance(nftMarketplace.address)
-      // Expect final market bal to equal inital + royalty fee
-      expect(+fromWei(finalMarketBal)).to.equal(+fromWei(royaltyFee) + +fromWei(initMarketBal))
-      // Owner of NFT should now be the marketplace
-      expect(await nftMarketplace.ownerOf(0)).to.equal(nftMarketplace.address);
-      // Get item from items mapping then check fields to ensure they are correct
-      const item = await nftMarketplace.marketItems(0)
-      expect(item.tokenId).to.equal(0)
-      expect(item.seller).to.equal(user1.address)
-      expect(item.price).to.equal(resaleprice)
+    // user1 wil list the item back in the marketplace with a new price, which is suppose 2 ethers
+    const resalePrice = ethToWei(2);
+
+    it("Smart Contract Wallet Balance is updated", async function() {
+      // fetching the initial balance of the smart contract wallet
+      const smartWalletInitialBalance = +weiToEth(await ethers.provider.getBalance(nftMarketplace.address));
+      // user1 is listing the music with tokenID:0 in the marketplace
+      await nftMarketplace.connect(user1).resellToken(0, resalePrice, {value: royaltyFee});
+      // fetching the updated balance of the smart contract wallet
+      const smartWalletUpdatedBalance = +weiToEth(await ethers.provider.getBalance(nftMarketplace.address));
+      // checking if the smart contract wallet balance is updated after the listing of token by user1
+      // new balance = previous balance + royalty fee
+      expect(smartWalletUpdatedBalance).to.equal(smartWalletInitialBalance + +weiToEth(royaltyFee));
     });
 
-    it("Should fail if price is set to zero and royalty fee is not paid", async function () {
+    it("Smart Contract is the New Owner", async function() {
+      await nftMarketplace.connect(user1).resellToken(0, resalePrice, {value: royaltyFee});
+      // checing if the new owner of the music token is the smart contract or not
+      expect(await nftMarketplace.ownerOf(0)).to.equal(nftMarketplace.address);
+    });
+
+    it("Data Integrity of the Token in the Marketplace", async function() {
+      await nftMarketplace.connect(user1).resellToken(0, resalePrice, {value: royaltyFee});
+      // fetching info of a token from the marketplace
+      const item = await nftMarketplace.marketItems(0); // marketItems array contains the data of the all the tokens
+      expect(item.tokenId).to.equal(0);                 // matching the tokenId,
+      expect(item.seller).to.equal(user1.address);      // seller, and
+      expect(item.price).to.equal(resalePrice);         // price of the fetched item
+    });
+
+    it("Emitted an event of Selling a Token", async function() {
+      // user1 lists the item on marketplace.
+      // checking if the purchase has emitted an event with the specific arguments or not
+      // the arguments are => tokenId, seller, price
+      await expect(nftMarketplace.connect(user1).resellToken(0, resalePrice, { value: royaltyFee }))
+        .to.emit(nftMarketplace, "MarketItemRelisted")
+        .withArgs(0, user1.address, resalePrice
+      )
+    });
+
+    it("Transaction Rejected when Price is set to Zero", async function () {
       await expect(
         nftMarketplace.connect(user1).resellToken(0, 0, { value: royaltyFee })
-        ).to.be.revertedWith("Price must be greater than zero");
-      await expect(
-        nftMarketplace.connect(user1).resellToken(0, toWei(1), { value: 0 })
-        ).to.be.revertedWith("Must pay royalty");
+        ).to.be.revertedWith("Please set a Positive Number as the price of the item");
     });
+
+    it("Transaction Rejected when required Royalty Fee is not Paid", async function () {
+      await expect(
+        nftMarketplace.connect(user1).resellToken(0, resalePrice, { value: 0 })
+      ).to.be.revertedWith("Please send the required Royalty Fee in order to relist the item on Marketplace");
+    });
+
   });
 
 
   describe("Getter functions", function () {
-    let soldItems = [0, 1, 4]
-    let ownedByUser1 = [0, 1]
-    let ownedByUser2 = [4]
+    let soldItems = [3, 5, 7];
+    let ownedByUser1 = [3, 5];
+    let ownedByUser2 = [7];
+
     beforeEach(async function () {
-      // user1 purchases item 0.
-      await (await nftMarketplace.connect(user1).buyToken(0, { value: prices[0] })).wait();
-      // user1 purchases item 1.
-      await (await nftMarketplace.connect(user1).buyToken(1, { value: prices[1] })).wait();
-      // user2 purchases item 4.
-      await (await nftMarketplace.connect(user2).buyToken(4, { value: prices[4] })).wait();
+      // user1 purchases item 3
+      await nftMarketplace.connect(user1).buyToken(3, { value: prices[3] });
+      // user1 purchases item 5
+      await nftMarketplace.connect(user1).buyToken(5, { value: prices[5] });
+      // user2 purchases item 7
+      await nftMarketplace.connect(user2).buyToken(7, { value: prices[7] });
     })
 
-    it("getAllUnsoldTokens should fetch all the marketplace items up for sale", async function () {
-      const unsoldItems = await nftMarketplace.getAllUnsoldTokens()
-      // Check to make sure that all the returned unsoldItems have filtered out the sold items.
-      expect(unsoldItems.every(i => !soldItems.some(j => j === i.tokenId.toNumber()))).to.equal(true)
-      // Check that the length is correct
+    it("Fetched the Unsold Marketplace Items", async function () {
+      // gets an array of all the unsold items
+      const unsoldItems = await nftMarketplace.getAllUnsoldTokens();
+      // none of the elements of soldItems list should be in the unsoldItems list
+      // use of "===" -> if the variable values are of different TYPES, then the values are considered as unequal.
+      expect(unsoldItems.every( 
+        (i) => !soldItems.some(                 // inverting it to true so that every element of unsoldItems is checked
+        (j) => j === i.tokenId.toNumber()))     // should return false everytime
+      )
+      .to.equal(true);
+      // checking if the length of the list is correct or not
       expect(unsoldItems.length === prices.length - soldItems.length).to.equal(true)
     });
-    it("getMyTokens should fetch all tokens the user owns", async function () {
+
+    it("Fetched the User Owned Items", async function () {
       // Get items owned by user1
-      let myItems = await nftMarketplace.connect(user1).getMyTokens()
-      // Check that the returned my items array is correct
-      expect(myItems.every(i => ownedByUser1.some(j => j === i.tokenId.toNumber()))).to.equal(true)
-      expect(ownedByUser1.length === myItems.length).to.equal(true)
+      let myTokens = await nftMarketplace.connect(user1).getMyTokens();
+      // every element of myTokens list should be in the ownedByUser1 list
+      expect(myTokens.every(
+        (i) => ownedByUser1.some(
+        (j) => j === i.tokenId.toNumber())))
+      .to.equal(true);
+      expect(ownedByUser1.length === myTokens.length).to.equal(true);
+
       // Get items owned by user2
-      myItems = await nftMarketplace.connect(user2).getMyTokens()
-      // Check that the returned my items array is correct
-      expect(myItems.every(i => ownedByUser2.some(j => j === i.tokenId.toNumber()))).to.equal(true)
-      expect(ownedByUser2.length === myItems.length).to.equal(true)
+      myTokens = await nftMarketplace.connect(user2).getMyTokens()
+      // every element of myTokens list should be in the ownedByUser2 list
+      expect(myTokens.every(
+        (i) => ownedByUser2.some(
+        (j) => j === i.tokenId.toNumber())))
+      .to.equal(true);
+      expect(ownedByUser2.length === myTokens.length).to.equal(true);
     });
+
   });
 
 });

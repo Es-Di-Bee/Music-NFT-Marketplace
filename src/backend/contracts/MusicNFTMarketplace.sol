@@ -13,7 +13,7 @@ contract MusicNFTMarketplace is ERC721("MusicNFTs", "MNS"), Ownable {  // inheri
 
     // the IPFS link where the metadata for the musics are stored
     string public baseURI = "https://bafybeidhjjbjonyqcahuzlpt7sznmh4xrlbspa3gstop5o47l6gsiaffee.ipfs.nftstorage.link/";  
-    //string public baseExtension = ".json";
+    // string public baseExtension = ".json";
     address public artist;  // public address of the artist so that our contract knows which account to pay the royalty fees to. this is not set as payable because it's public
     uint256 public royaltyFee;  // the fee which the artist will receive for each time reselling
 
@@ -23,6 +23,7 @@ contract MusicNFTMarketplace is ERC721("MusicNFTs", "MNS"), Ownable {  // inheri
         uint256 price;  // price of a music
     }
 
+    MarketItem[] public marketItems;  // this array works like a "collection" of all the music nfts in the marketplace
 
     // events allow us to log data to the ethereum blockchain
     // "indexed" helps us to search using these variables as filters
@@ -39,11 +40,8 @@ contract MusicNFTMarketplace is ERC721("MusicNFTs", "MNS"), Ownable {  // inheri
         uint256 price
     );
 
-    MarketItem[] public marketItems;  // this array works like a "collection" of all the music nfts in the marketplace
-
     // the constructor is used to initialize the "address" and "royalty fee" of the artist and also the "prices of all the musics" created by the artist
     // payable because it is required for the smart contract deployer (i.e the first seller) to cover the royalty fees or listing the nfts in the marketplace
-    
     constructor(uint256 _royaltyFee, address _artist, uint256[] memory _prices) payable { 
         
         //prices.length = number of musics in the marketplace
@@ -67,21 +65,22 @@ contract MusicNFTMarketplace is ERC721("MusicNFTs", "MNS"), Ownable {  // inheri
         royaltyFee = _royaltyFee;
     }
 
+    // this is the function an user will call if it wants to buy a music nft
     function buyToken(uint256 _tokenId) external payable {
         uint256 price = marketItems[_tokenId].price;    // current price of the particular token
         address seller = marketItems[_tokenId].seller;  // current seller of the particular token
 
         // checking if the sent money is equal to the current price or not
         require(msg.value == price, "Please send the asking price in order to complete the purchase");
-    
-        // "_transfer" arguments are => from, to, tokenID
-        // when buying tokens, token ownership are transferred from the address of the smart contract to the buyer
-        _transfer(address(this), msg.sender, _tokenId);
 
         // the fees are transferred to the wallets of both the artist and the seller
         // payable type-casting is done to invoke the function "transfer"
-        payable(artist).transfer(royaltyFee);
+        payable(artist).transfer(royaltyFee);  // royaltyFee amount is transferred from smart contract wallet to artist's wallet
         payable(seller).transfer(msg.value);
+    
+        // "_transfer" arguments are => from, to, tokenID
+        // when buying tokens, token ownership are transferred from the address of the smart contract to the buyer
+        _transfer(address(this), msg.sender, _tokenId);  // "_transfer" is a function of ERC721 Contract
 
         // as the item is sold, the new seller is No One
         marketItems[_tokenId].seller = payable(address(0));
@@ -90,49 +89,67 @@ contract MusicNFTMarketplace is ERC721("MusicNFTs", "MNS"), Ownable {  // inheri
         emit MarketItemBought(_tokenId, seller, msg.sender, price);
     }
 
+    // this is the function to relist a music nft owned by an user, back in the marketplace
     function resellToken(uint256 _tokenId, uint256 _price) external payable {
-        require(msg.value == royaltyFee, "Must pay royalty");
-        require(_price > 0, "Price must be greater than zero");
 
+        // checking if the money sent is equal to the royalty fee or not 
+        require(msg.value == royaltyFee, "Please send the required Royalty Fee in order to relist the item on Marketplace");
+        // checking if the asking price is a positive number or not, else doesn't make any sense 
+        require(_price > 0, "Please set a Positive Number as the price of the item");
+
+        // the nft ownership is transferred to the smart wallet
+        _transfer(msg.sender, address(this), _tokenId);
+
+        // updating the marketItems array with new price and seller
         marketItems[_tokenId].price = _price;
         marketItems[_tokenId].seller = payable(msg.sender);
 
-        _transfer(msg.sender, address(this), _tokenId);
-
+        // emitting an event to log the reselling data on the blockchain
         emit MarketItemRelisted(_tokenId, msg.sender, _price);
     }
 
+    // this function is for returning the list of music nfts which are in the marketplace but not yet bought by any user
     function getAllUnsoldTokens() external view returns(MarketItem[] memory) {
-        uint256 unsoldCount = balanceOf(address(this));  // returns the number of tokens in the account of the particular address
-        MarketItem[] memory tokens = new MarketItem[] (unsoldCount);
+        // retrieving how many nfts, the smart contract is owner of. Only unsold tokens have the address of smart contract as the owner.
+        uint256 unsoldCount = balanceOf(address(this));  
+        // creating an array of the same size, because we will be returning those unsold nfts/tokens
+        MarketItem[] memory unsoldTokens = new MarketItem[] (unsoldCount); 
+        // this variable works as an iterator for our newly created array
         uint256 currentIndex = 0;
 
+        // we are looping through all the tokens in the marketplace
         for (uint256 i = 0; i < marketItems.length; ++i) {
+            // only selecting those tokens, which have Non-Zero as seller address. Because zero address refers to that token been sold.
             if (marketItems[i].seller != address(0)) {
-                tokens[currentIndex] = marketItems[i];
-                ++currentIndex;
+                unsoldTokens[currentIndex] = marketItems[i];  // copying that token in our newly created array
+                ++currentIndex;  // controlling the iterator of our newly created array
             }
         }
 
-        return (tokens);
+        return unsoldTokens;
     }
 
+    // this function is for fetching the owned nfts/tokens of a particular user
     function getMyTokens() external view returns(MarketItem[] memory) {
+        // retrieving how many nfts, the function calling user is owner of
         uint256 myTokenCount = balanceOf(msg.sender);
-        MarketItem[] memory tokens = new MarketItem[] (myTokenCount);
+
+        MarketItem[] memory myTokens = new MarketItem[] (myTokenCount);
         uint256 currentIndex = 0;
 
         for (uint256 i = 0; i < marketItems.length; ++i) {
-            if (ownerOf(i) == msg.sender) {  // ownerOf returns the address of the owner of a particular token
-                tokens[currentIndex] = marketItems[i];
+            // only selecting those tokens, whose owner is the function calling user
+            if (ownerOf(i) == msg.sender) {
+                myTokens[currentIndex] = marketItems[i];
                 ++currentIndex;
             }
         }
 
-        return (tokens);
+        return myTokens;
     }
 
-    function _baseURI() internal view virtual override returns (string memory) {
+    // this function is for returning the IPFS baseURI where all the nft metadata are stored
+    function _baseURI() internal view override returns (string memory) {
         return baseURI;
     }
 
