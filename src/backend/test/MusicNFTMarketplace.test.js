@@ -10,8 +10,8 @@ const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
 // arrow functions for converting from ethers to wei and vice-versa
-const ethToWei = (num) => ethers.utils.parseEther(num.toString()) // string => bigNumber
-const weiToEth = (num) => ethers.utils.formatEther(num)           // bigNumber => string
+const ethToWei = (num) => ethers.utils.parseEther(num.toString()); // string => bigNumber
+const weiToEth = (num) => ethers.utils.formatEther(num);          // bigNumber => string
 
 // "describe" is a mocha function for grouping tests together
 //  takes 2 arguments -> name of the test, callback function (function which is passed as an argument to another function)
